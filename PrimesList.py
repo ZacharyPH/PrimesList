@@ -3,11 +3,16 @@ import requests
 
 
 class PrimesList:
-    path = "./Primes/"
-    local = []
-    primes = dict(zip(list(range(1, 500 + 1)), [["", None]] * 500))
+    path = ""
+    # cls.path = path if type(path) is str and path != "" else "tmp_primes"
+    # cls.path = "./" + cls.path.strip(". / \\") + "/"
+    local = dict(zip(list(range(1, 500 + 1)), [None] * 500))
+    MAX_PRIME = None
+    with open("PrimeRanges.csv", "r") as prime_rngs:
+        prime_ranges = {i + 1: (int(line.split(",")[0]), int(line.split(",")[1].strip("\n")))
+                        for i, line in enumerate(prime_rngs.readlines())}
 
-    def __init__(self, prime_range="", path="./Primes/"):
+    def __init__(self, prime_range="", path=""):
         """
         :param prime_range: Whether to download all 50 million primes
                             "all" - download all primes to local storage (~470 Mb)
@@ -16,16 +21,27 @@ class PrimesList:
                             [c, d] - download the c-th prime through the d-th prime (inclusive)
         :param path: Path to keep fetched primes locally. False, None, or "" to discard values on completion
         """
-
+        if path == "":
+            if PrimesList.path == "":
+                PrimesList.path = "./Primes/"
+        elif PrimesList.path != "":
+            raise ValueError("Changing path between PrimeList instances will cause duplicate files "
+                             "and wasted space.")
+        else:
+            PrimesList.path = "./" + path.strip("./ ") + "/"
+        self.prime_range = prime_range
+        PrimesList._init_prime_list(prime_range, PrimesList.path)
+        for file in os.listdir(PrimesList.path):
+            if (k := int(file.split(".")[0])) in PrimesList.local.keys():
+                PrimesList.local[k] = file
+        upper_limits = [p[1] for i, p in PrimesList.prime_ranges.items() if PrimesList.local[i] is not None]
+        PrimesList.MAX_PRIME = max(upper_limits) if len(upper_limits) >= 1 else None
         self.curr_prime = 2
         self.curr_index = 0
         self.range = prime_range
 
     @classmethod
-    def _init_PrimesList(cls, prime_range, path):
-        cls.path = path if type(path) is str and path != "" else "tmp_primes"
-        cls.path = "./" + cls.path.strip(". / \\") + "/"
-
+    def _init_prime_list(cls, prime_range, path):
         if type(prime_range) is str:
             if (prl := prime_range.lower()) == "all":
                 reload_range = (1, 500)
@@ -34,6 +50,7 @@ class PrimesList:
             else:
                 err = str(prime_range) + " is not a valid prime_range. ['all', 'none', None, '', (a, b), [c, d]]"
                 raise ValueError(err)
+
         elif type(prime_range) is tuple:
             reload_range = PrimesList.classify_prime(prime_range)
         elif type(prime_range) is list:
@@ -41,12 +58,7 @@ class PrimesList:
         else:
             err = str(prime_range) + " is not a valid prime_range. ['all', 'none', None, '', (a, b), [c, d]]"
             raise ValueError(err)
-        cls.prime_ranges = PrimesList.download_primes(rng=PrimesList._get_reloads(rng=reload_range), path=path)
-        if (l := len(cls.prime_ranges)) == 0:
-            cls.MAX_PRIME = 2
-        else:
-            cls.MAX_PRIME = cls.prime_ranges[len(cls.prime_ranges)][-1]
-        print("List constructor Run!")
+        PrimesList.download_primes(rng=PrimesList._get_reloads(rng=reload_range), path=path)
 
     @classmethod
     def _get_reloads(cls, min_size=0, rng=(1, 50)):
@@ -59,11 +71,8 @@ class PrimesList:
 
     @classmethod
     def download_primes(cls, rng, path):
-        print("Downloading:", rng, "into", path)
-        cls.local = sorted([[i for i in rng if i not in cls.local]] + cls.local)
         if not os.path.exists(path):
             os.makedirs(path)
-        ranges = {}
         for i in rng:
             url = r"https://raw.githubusercontent.com/ZacharyPH/PrimeNumbers/master/HundredThousands/" + str(i) + ".csv"
             try:
@@ -72,9 +81,8 @@ class PrimesList:
                 print("The supplied URL is invalid. Please update and run again.")
                 raise Exception("InvalidURL")
             content = str(r.content, "utf-8").strip("\n")
-            ranges[i] = (content[0], content[-1])
             cls._write_primes(i, content, path)
-        return ranges
+        cls.local.update({i: str(i) + ".csv" for i in rng if cls.local[i] is None})
 
     @classmethod
     def _write_primes(cls, name, content, path):
@@ -99,19 +107,9 @@ class PrimesList:
                     break
         return cats
 
-    @classmethod
-    def update_primes(cls):
-        for f in os.listdir(cls.path):
-            if (prime_list_num := int(f.split(".")[0])) in cls.primes.keys():
-                cls.primes[prime_list_num][0] = f
-
     def __next__(self):
         self.curr_index += 1
-        yield cls.primes[self.curr_index - 1]
-
-    @classmethod
-    def _new_set(cls):
-        pass
+        yield PrimesList.local[self.curr_index - 1]
 
     def __del__(self):
         if PrimesList.path == "" or PrimesList.path is False or PrimesList.path is None:
