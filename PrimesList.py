@@ -9,6 +9,7 @@ class PrimesList:
     path = ""
     local = dict(zip(list(range(1, 500 + 1)), [None] * 500))
     MAX_PRIME = None
+    # Breakdown of starting and ending prime for each of the 500 chunks
     with open("PrimeRanges.csv", "r") as prime_rngs:
         prime_ranges = {i + 1: (int(line.split(",")[0]), int(line.split(",")[1].strip("\n")))
                         for i, line in enumerate(prime_rngs.readlines())}
@@ -96,6 +97,11 @@ class PrimesList:
 
     @classmethod
     def classify_prime(cls, primes):
+        """
+        Determine which prime package a prime is a part of
+        :param primes: List of primes, string, or int
+        :return: list of prime package categorizations
+        """
         cats = []
         if type(primes) is str:
             try:
@@ -124,25 +130,33 @@ class PrimesList:
         if type(index) is list:
             for i in index:
                 if type(cls.local[i]) is str:
-                    cls.local[i] = open(cls.path + cls.local[i], "r")
+                    cls.local[i] = [int(p) for p in open(cls.path + cls.local[i], "r").readline().split(",")]
                 result.append(cls.local[i])
         else:
-            result = open(cls.path + cls.local[index], "r") if type(cls.local[index]) is str else cls.local[index]
+            if type(cls.local[index]) is str:
+                cls.local[index] = [int(p) for p in open(cls.path + cls.local[index], "r").readline().split(",")]
+            result.append(cls.local[index])
         return result
+
+    def __iter__(self):
+        # self.curr_index
+        return self
 
     def __next__(self):
         self.curr_index += 1
-        yield PrimesList.local[self.curr_index - 1]
+        next = PrimesList.classify_prime(self.curr_index)[0]
+        list = PrimesList._open_local(next)[0]
+        self.curr_prime = list[self.curr_index % 100000]
+        return self.curr_prime
 
     @classmethod
     def __del__(cls):
         if PrimesList.path == "" or PrimesList.path is False or PrimesList.path is None:
             os.rmdir("./tmp_primes")
         for l in cls.local.values():
-            if type(l) is not str and l is not None:
-                l.close()
+            del l
 
-# TODO: Write another function for local prime retrieval. Maybe track which ones are downloaded.
 # TODO: Cleanup code structure and define class plan
 # TODO: Comments :)
 # TODO: Maybe this class should be divided for clarity
+# TODO: Continuation - not sure whether the primes instances should inherit from the parent class. Inheritance is cool!
