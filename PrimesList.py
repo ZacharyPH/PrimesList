@@ -3,9 +3,10 @@ import requests
 
 
 class PrimesList:
+    """
+    local: dictionary of integers to None, string (path), or file object to primes
+    """
     path = ""
-    # cls.path = path if type(path) is str and path != "" else "tmp_primes"
-    # cls.path = "./" + cls.path.strip(". / \\") + "/"
     local = dict(zip(list(range(1, 500 + 1)), [None] * 500))
     MAX_PRIME = None
     with open("PrimeRanges.csv", "r") as prime_rngs:
@@ -55,6 +56,8 @@ class PrimesList:
             reload_range = PrimesList.classify_prime(prime_range)
         elif type(prime_range) is list:
             reload_range = [int(i / (100 * 1000 + 1)) + 1 for i in prime_range]
+        elif prime_range is None:
+            reload_range = []
         else:
             err = str(prime_range) + " is not a valid prime_range. ['all', 'none', None, '', (a, b), [c, d]]"
             raise ValueError(err)
@@ -63,6 +66,8 @@ class PrimesList:
     @classmethod
     def _get_reloads(cls, min_size=0, rng=(1, 50)):
         reloads = []
+        if rng == []:
+            return reloads
         for i in range(rng[0], rng[1] + 1):
             filename = cls.path + str(i) + ".csv"
             if not os.path.isfile(filename) or os.stat(filename).st_size <= min_size:
@@ -71,7 +76,7 @@ class PrimesList:
 
     @classmethod
     def download_primes(cls, rng, path):
-        if not os.path.exists(path):
+        if not os.path.exists(path) and rng != []:
             os.makedirs(path)
         for i in rng:
             url = r"https://raw.githubusercontent.com/ZacharyPH/PrimeNumbers/master/HundredThousands/" + str(i) + ".csv"
@@ -98,6 +103,12 @@ class PrimesList:
             except ValueError:
                 err = str(primes) + " cannot be classified as it cannot be converted to an integer"
                 raise ValueError(err)
+        if type(primes) is list:
+            try:
+                primes = (int(prime) for prime in primes)
+            except ValueError:
+                err = str(primes) + " cannot be classified as it cannot be converted to an integer"
+                raise ValueError(err)
         if type(primes) is int:
             primes = [primes]
         for prime in primes:
@@ -107,13 +118,31 @@ class PrimesList:
                     break
         return cats
 
+    @classmethod
+    def _open_local(cls, index):
+        result = []
+        if type(index) is list:
+            for i in index:
+                if type(cls.local[i]) is str:
+                    cls.local[i] = open(cls.path + cls.local[i], "r")
+                result.append(cls.local[i])
+        else:
+            result = open(cls.path + cls.local[index], "r") if type(cls.local[index]) is str else cls.local[index]
+        return result
+
     def __next__(self):
         self.curr_index += 1
         yield PrimesList.local[self.curr_index - 1]
 
-    def __del__(self):
+    @classmethod
+    def __del__(cls):
         if PrimesList.path == "" or PrimesList.path is False or PrimesList.path is None:
             os.rmdir("./tmp_primes")
+        for l in cls.local.values():
+            if type(l) is not str and l is not None:
+                l.close()
 
 # TODO: Write another function for local prime retrieval. Maybe track which ones are downloaded.
 # TODO: Cleanup code structure and define class plan
+# TODO: Comments :)
+# TODO: Maybe this class should be divided for clarity
