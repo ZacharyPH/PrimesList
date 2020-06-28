@@ -1,4 +1,4 @@
-import pickle, json
+import pickle, json, csv
 
 
 def init_objs(data):
@@ -11,7 +11,7 @@ def init_objs(data):
         json.dump(data, JSON)
 
 
-def csv():
+def unlist():
     global path
     with open(path + "1.csv", "r") as f:
         return [int(prime) for prime in f.readline().split(",")]
@@ -29,11 +29,19 @@ def unjson():
         return json.load(JSON)
 
 
+def uncsv():
+    global path
+    with open(path + "1.csv", "r") as CSV:
+        reader = csv.reader(CSV)
+        return [int(p) for p in list(reader)[0]]
+
+
 if __name__ == "__main__":
     path = "./Speed Tests/"
-    d = csv()
+    d = unlist()
     init_objs(d)
-    print("CSV:\t", csv()[:10])
+    print("List:\t", unlist()[:10])
     print("Pickle:\t", unpickle()[:10])
-    print("JSON:\t", unjson()[1])
+    print("JSON:\t", unjson()[:10])
+    print("CSV:\t", uncsv()[:10])
 
