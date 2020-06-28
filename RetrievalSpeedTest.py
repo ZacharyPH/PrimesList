@@ -1,4 +1,7 @@
-import pickle, json, csv
+import csv
+import json
+import h5py
+import pickle
 
 
 def init_objs(data):
@@ -9,6 +12,9 @@ def init_objs(data):
     # JSON
     with open(path + "1.json", "w") as JSON:
         json.dump(data, JSON)
+    # h5py
+    with h5py.File(path + "1.hdf5", "w") as hdf:
+        hdf.create_dataset("Primes", (100000, ), dtype="i", data=data)
 
 
 def unlist():
@@ -36,6 +42,12 @@ def uncsv():
         return [int(p) for p in list(reader)[0]]
 
 
+def unhdf():
+    global path
+    with h5py.File(path + "1.hdf5", "r") as hdf:
+        return hdf["Primes"][()]
+
+
 if __name__ == "__main__":
     path = "./Speed Tests/"
     d = unlist()
@@ -44,4 +56,6 @@ if __name__ == "__main__":
     print("Pickle:\t", unpickle()[:10])
     print("JSON:\t", unjson()[:10])
     print("CSV:\t", uncsv()[:10])
+    print("HDF:\t", unhdf()[:10])
 
+# TODO: Profile! https://docs.python.org/3/library/profile.html
