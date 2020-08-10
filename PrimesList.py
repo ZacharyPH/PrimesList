@@ -9,13 +9,13 @@ class PrimesList:
     """
     path = ""
     local = dict(zip(list(range(1, 500 + 1)), [None] * 500))
-    MAX_PRIME = None
     # Breakdown of starting and ending prime for each of the 500 chunks
-    with open("PrimeRanges500.csv", "r") as prime_rngs:
+    with open("PrimeRanges50.csv", "r") as prime_rngs:
         prime_ranges = {i + 1: (int(line.split(",")[0]), int(line.split(",")[1].strip("\n")))
                         for i, line in enumerate(prime_rngs.readlines())}
 
-    def __init__(self, prime_range="", path=""):
+    @classmethod
+    def __init__(cls, prime_range="", path=""):
         """
         :param prime_range: Whether to download all 50 million primes
                             "all" - download all primes to local storage (~470 Mb)
@@ -32,16 +32,11 @@ class PrimesList:
                              "and wasted space.")
         else:
             PrimesList.path = "./" + path.strip("./ ") + "/"
-        self.prime_range = prime_range
+        cls.prime_range = prime_range
         PrimesList._init_prime_list(prime_range, PrimesList.path)
-        for file in os.listdir(PrimesList.path):
-            if (k := int(file.split(".")[0])) in PrimesList.local.keys():
-                PrimesList.local[k] = file
+        cls._init_virtual_dataset()
+
         upper_limits = [p[1] for i, p in PrimesList.prime_ranges.items() if PrimesList.local[i] is not None]
-        PrimesList.MAX_PRIME = max(upper_limits) if len(upper_limits) >= 1 else None
-        self.curr_prime = 2
-        self.curr_index = 0
-        self.range = prime_range
 
     @classmethod
     def _init_prime_list(cls, prime_range, path):
@@ -126,23 +121,19 @@ class PrimesList:
         return cats
 
     @classmethod
-    def _open_local(cls, index):
-        result = []
-        if type(index) is int:
-            index = [index]
-        for i in index:
-            if type(cls.local[i]) is str:
-                cls.local[i] = [int(p) for p in open(cls.path + cls.local[i], "r").readline().split(",")]
-            result.append(cls.local[i])
-        return result
-
-    @classmethod    # TODO: Current - this function (and the following) was (were) just added. Test!
     def _init_virtual_dataset(cls):
         hdf_path = "./HDF/"
         layout = h5py.VirtualLayout(shape=(50, 1000 * 1000), dtype="u4")
+        if not os.path.exists(hdf_path):
+            os.mkdir(hdf_path)
         for n in range(50):
-            with h5py.File(hdf_path + f"{n}.h5", "r") as f:
-                layout[n] = h5py.VirtualSource(f["Primes"])
+            path = hdf_path + f"{n}.h5"
+            if not os.path.exists(path):
+                f = h5py.File(hdf_path + f"{n}.h5", "w")
+                f.create_dataset("Primes", shape=[1, 1000 * 1000])
+            else:
+                f = h5py.File(hdf_path + f"{n}.h5", "r")
+            layout[n] = h5py.VirtualSource(f["Primes"])
 
         with h5py.File(hdf_path + "Primes.h5vd", "w") as f:
             f.create_virtual_dataset("Primes", layout)
