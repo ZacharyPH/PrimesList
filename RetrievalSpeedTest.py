@@ -1,19 +1,23 @@
 import csv
 import json
 import h5py
+import pstats
 import pickle
+import cProfile
+from pstats import SortKey
 
 
 def init_objs(data):
     global path
+    name = "1mil"
     # Pickling
-    with open(path + "1.p", "wb") as P:
+    with open(path + name + ".p", "wb") as P:
         pickle.dump(data, P)
     # JSON
-    with open(path + "1.json", "w") as JSON:
+    with open(path + name + ".json", "w") as JSON:
         json.dump(data, JSON)
     # h5py
-    with h5py.File(path + "1.hdf5", "w") as hdf:
+    with h5py.File(path + name + ".hdf5", "w") as hdf:
         hdf.create_dataset("Primes", (100000, ), dtype="i", data=data)
 
 
@@ -48,14 +52,33 @@ def unhdf():
         return hdf["Primes"][()]
 
 
+def run_all():
+    global path
+    # print("List:\t")
+    unlist()
+
+    # print("Pickle:\t")
+    unpickle()
+
+    # print("JSON:\t")
+    unjson()
+
+    # print("CSV:\t")
+    uncsv()
+
+    # print("HDF:\t")
+    unhdf()
+
+
 if __name__ == "__main__":
     path = "./Speed Tests/"
-    d = unlist()
-    init_objs(d)
-    print("List:\t", unlist()[:10])
-    print("Pickle:\t", unpickle()[:10])
-    print("JSON:\t", unjson()[:10])
-    print("CSV:\t", uncsv()[:10])
-    print("HDF:\t", unhdf()[:10])
+    init_objs(unlist())
 
-# TODO: Profile! https://docs.python.org/3/library/profile.html
+    cProfile.run("run_all()", "runtime")
+    p = pstats.Stats('runtime').strip_dirs()
+    p.sort_stats(SortKey.CUMULATIVE).print_stats(100)  # Results: HDF, Pickle, list, csv, json
+    # p.sort_stats(SortKey.TIME).print_stats(100) # Results: HDF, Pickle, json, list, csv
+    # Note: If I'm reading this correctly, HDF is about twice as fast as pickling,
+    # which is at least three time faster than everything past that.
+
+    # Given these numbers, I will construct a virtual dataset of the larger files for use with HDF!
