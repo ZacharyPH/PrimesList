@@ -1,16 +1,17 @@
 import os
+import h5py
 import requests
 
 
 class PrimesList:
     """
-    local: dictionary of integers to None, string (path), or file object to primes
+    local: dictionary of integers, values of None, string (path), or file object to primes
     """
     path = ""
     local = dict(zip(list(range(1, 500 + 1)), [None] * 500))
     MAX_PRIME = None
     # Breakdown of starting and ending prime for each of the 500 chunks
-    with open("PrimeRanges.csv", "r") as prime_rngs:
+    with open("PrimeRanges500.csv", "r") as prime_rngs:
         prime_ranges = {i + 1: (int(line.split(",")[0]), int(line.split(",")[1].strip("\n")))
                         for i, line in enumerate(prime_rngs.readlines())}
 
@@ -67,7 +68,7 @@ class PrimesList:
     @classmethod
     def _get_reloads(cls, min_size=0, rng=(1, 50)):
         reloads = []
-        if rng == []:
+        if not rng:
             return reloads
         for i in range(rng[0], rng[1] + 1):
             filename = cls.path + str(i) + ".csv"
@@ -127,16 +128,28 @@ class PrimesList:
     @classmethod
     def _open_local(cls, index):
         result = []
-        if type(index) is list:
-            for i in index:
-                if type(cls.local[i]) is str:
-                    cls.local[i] = [int(p) for p in open(cls.path + cls.local[i], "r").readline().split(",")]
-                result.append(cls.local[i])
-        else:
-            if type(cls.local[index]) is str:
-                cls.local[index] = [int(p) for p in open(cls.path + cls.local[index], "r").readline().split(",")]
-            result.append(cls.local[index])
+        if type(index) is int:
+            index = [index]
+        for i in index:
+            if type(cls.local[i]) is str:
+                cls.local[i] = [int(p) for p in open(cls.path + cls.local[i], "r").readline().split(",")]
+            result.append(cls.local[i])
         return result
+
+    @classmethod    # TODO: Current - this function (and the following) was (were) just added. Test!
+    def _init_virtual_dataset(cls):
+        hdf_path = "./HDF/"
+        layout = h5py.VirtualLayout(shape=(50, 1000 * 1000), dtype="u4")
+        for n in range(50):
+            with h5py.File(hdf_path + f"{n}.h5", "r") as f:
+                layout[n] = h5py.VirtualSource(f["Primes"])
+
+        with h5py.File(hdf_path + "Primes.h5vd", "w") as f:
+            f.create_virtual_dataset("Primes", layout)
+
+    @classmethod
+    def open_hdf(cls):
+        return h5py.File("./HDF/" + "Primes" + ".h5vd", "r")
 
     def __iter__(self):
         # self.curr_index
@@ -153,10 +166,12 @@ class PrimesList:
     def __del__(cls):
         if PrimesList.path == "" or PrimesList.path is False or PrimesList.path is None:
             os.rmdir("./tmp_primes")
-        for l in cls.local.values():
-            del l
+        for local in cls.local.values():
+            del local
 
 # TODO: Cleanup code structure and define class plan
 # TODO: Comments :)
 # TODO: Maybe this class should be divided for clarity
 # TODO: Continuation - not sure whether the primes instances should inherit from the parent class. Inheritance is cool!
+# TODO: Current - Piece in the virtual datasets with non-downloaded data
+# TODO: Cleanup main code to allow simple access, rather than currently defined iterators on a per-instance basis
