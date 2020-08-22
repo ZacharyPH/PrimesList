@@ -11,6 +11,7 @@ class PrimesList:
     All class functions should be accessed using standard syntax for slicing and iterator.
     For debugging purposes, PrimesList exposes the classify_primes() function,
         which determines which HDF dataset contains
+    find_next_prime(n) returns (index, prime) of the smallest prime larger than n
 
     Variables:
     path: Download location
@@ -23,15 +24,30 @@ class PrimesList:
     primes = None
     initialized = False
 
-    def __init__(self, prime_range="", path=""):
+    def __init__(self, prime_range="", path="") -> None:
+        """
+        Instance constructor, sets accessible range for the object. Initializes the class once
+        :param prime_range: Prime numbers which should be accessible
+        :param path: Where to download primes. Default = 'PrimesList/Primes/...'
+        """
         if not PrimesList.initialized:
             PrimesList._init_PrimesList_(prime_range, path)
             PrimesList.initialized = True
-        # Copy classification from _init_PrimesList_ so each instance knows it's limits :)
-        self.lower = 0  # TODO: These should be initialized to None, once __init__ can handle [c, d]
-        self.upper = 15
-        self.curr = None
 
+        if type(prime_range) is list:
+            self.lower, self.upper = prime_range
+        elif type(prime_range) is tuple:
+            self.lower = PrimesList.find_next_prime(prime_range[0])
+            self.upper = PrimesList.find_next_prime(prime_range[1])
+        elif type(prime_range) is str:
+            if prime_range == "all":
+                self.lower, self.upper = (0, 50 * 1000 * 1000)
+            if prime_range == "none" or prime_range == "" or prime_range is None:
+                # Is it odd behavior to have 'none' give access to the first set(s) of downloaded primes?
+                # Seems strange, but this object would have no use for access otherwise, so...
+                pass
+        self.curr = None    # Updated once the object has been used in iteration
+        PrimesList._download_primes(PrimesList._parse_range([self.lower, self.upper]))
 
     @classmethod
     def _init_PrimesList_(cls, prime_range="", path=""):
@@ -72,7 +88,7 @@ class PrimesList:
         cls._download_primes(prime_sets, cls.path)
 
         # Open the HDF Virtual Dataset
-        cls.primes = cls._open_hdf()["Primes"][0]
+        cls.primes = cls._open_primes_dataset()
 
     @classmethod
     def _parse_range(cls, prime_range) -> list:
@@ -85,7 +101,7 @@ class PrimesList:
             if (prl := prime_range.lower()) == "all":
                 reload_range = range(50)
             elif prl == "none" or prl == "" or prl is None:
-                return
+                reload_range = []
             else:
                 err = str(prime_range) + " is not a valid prime_range. ['all', 'none', None, '', (a, b), [c, d]]"
                 raise ValueError(err)
@@ -103,11 +119,19 @@ class PrimesList:
         else:
             err = str(prime_range) + " is not a valid prime_range. ['all', 'none', None, '', (a, b), [c, d]]"
             raise ValueError(err)
-        # Only download sets that aren't already downloaded
+        # Only download sets that aren't already local
         return [r for r in reload_range if cls.prime_ranges[r][2] is False]
 
     @classmethod
-    def _download_primes(cls, rng, path) -> None:
+    def _download_primes(cls, rng, path="") -> None:
+        """
+        Fetches each prime set in rng from GitHub and saves it locally
+        :param rng: Sets to download
+        :param path: Save location, defaults to cls.path
+        :return: None (files downloaded)
+        """
+        if path == "":
+            path = cls.path
         if not os.path.exists(path) and rng != []:
             os.makedirs(path)
         for i in rng:
@@ -157,7 +181,29 @@ class PrimesList:
         return cats
 
     @classmethod
-    def _init_virtual_dataset(cls, hdf_path):
+    def find_next_prime(cls, n) -> tuple:
+        """
+        Finds the smallest prime larger than n
+        :param n: number to find prime close to
+        :return: (index, prime)
+        """
+        prime_set = cls.classify_primes(n)
+        if cls.prime_ranges[prime_set][2] is False:
+            cls._download_primes(prime_set)
+        curr = prime_set * 1000 * 1000
+        p = 0
+        while (p := cls.primes[curr]) < n:
+            curr += 1
+        return curr, p
+
+
+    @classmethod
+    def _init_virtual_dataset(cls, hdf_path) -> None:
+        """
+        Construct the virtual dataset from local and non-local files
+        :param hdf_path: Prime dataset location
+        :return: None (creates file)
+        """
         layout = h5py.VirtualLayout(shape=(1, 50 * 1000 * 1000), dtype="u4")
         if not os.path.exists(hdf_path):
             os.mkdir(hdf_path)
@@ -174,62 +220,51 @@ class PrimesList:
             f.create_virtual_dataset("Primes", layout)
 
     @classmethod
-    def _open_hdf(cls) -> h5py.File:
-        return h5py.File(cls.path + "Primes.h5vd", "r")
+    def _open_primes_dataset(cls) -> h5py.File:
+        """
+        Opens the 'Primes' virtual dataset
+        :return: numpy array of all primes, including placeholder 0's for non-downloaded sets
+        """
+        return h5py.File(cls.path + "Primes.h5vd", "r")["Primes"][0]
 
-    def __iter__(self, s):
-        print("__iter__")
-        if self.curr is None:
-            if s.start is None:
-                self.curr = self.lower - 1
-            else:
-                self.curr = s.start - 1
-        if s.stop is None:
-            stop = self.upper
-        else:
-            stop = s.stop
-        if s.step is None:
-            step = 1
-        else:
-            step = s.step
+    def __iter__(self):
+        self.curr = self.lower - 1
         return self
 
     def __next__(self):
-        print("__next__")
         self.curr += 1
-        if self.curr <= self.upper:
-            return PrimesList.primes[self.curr // (1000 * 1000)][self.curr % (1000 * 1000)]
+        if self.curr < self.upper:
+            return PrimesList.primes[self.curr]
         else:
-            return StopIteration
+            raise StopIteration
 
-    def __getitem__(self, s):
-        print("__getitem__")
+    def __getitem__(self, s):  # -> np.array
+        """
+        Currently, __getitem__ does not support negative indices. Returns a slice of the prime numbers
+        :param s: slice, in the form slice([start = 0], stop, [step = 1])
+        :return: numpy array of primes
+        """
         if s.start is None:
             start = self.lower
+        elif s.start < self.lower:
+            msg = f"Start {s.start} is out of bounds for {self}, which has bounds ({self.lower}, {self.upper})"
+            raise ValueError(msg)
         else:
             start = s.start
         if s.stop is None:
             stop = self.upper
+        elif s.stop > self.upper:
+            msg = f"Stop {s.stop} is out of bounds for {self}, which has bounds ({self.lower}, {self.upper})"
+            raise ValueError(msg)
         else:
             stop = s.stop
         if s.step is None:
             step = 1
         else:
             step = s.step
-        # Add a check for whether the slice falls within the accepted (initialized) range for the instance
-        # What probably needs to happen is that each new instance gets bounds
-        # When a new instance is created, it defaults to having no numbers and not being iterable
-        # If it is given a range, that range is re-initialized to make sure everything is downloaded
-        # Q: Do I want to iterate by primes or prime number? Probably number, so I can use the below return...
-        # A: Yep, that makes sense because the slice will be in terms of number, rather than prime.
         return PrimesList.primes[start:stop:step]
 
-    # TODO: Figure out conditions requiring clearing out the downloads
+    # TODO: Determine conditions requiring clearing out the downloads
     @classmethod
     def __del__(cls):
         pass
-
-# TODO: PLAN
-#       1a. _init_PrimesList_() sets the storage path, stores the ranges (and False on each to indicate they're not local)
-#       1b. _init_PrimesList_() then creates Primes.h5vd, the virtual dataset, and downloads any necessasry primes
-#       2. Define __getitem__() to allow arbitrary slicing and iteration
