@@ -29,7 +29,7 @@ PrimesList also supports iteration:
 ```
 p = PrimesList([1, 6])  # p now stores the first through the fifth primes
 for prime in p:
-    print(p, end=", ')  # > 3, 5, 7, 11, 13, 
+    print(p, end=", ")  # > 3, 5, 7, 11, 13, 
 ```
 And slicing:
 ```
