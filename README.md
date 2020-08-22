@@ -38,8 +38,8 @@ print(p[1000:2000:100])  # > [ 7927  8837  9739 10663 11677 12569 13513 14533 15
 ```
 
 ### License
-PrimesList employs the same MIT license as [UTM Primes] (https://primes.utm.edu),
-from where these primes are taken. You can view the license [here] (https://github.com/ZacharyPH/PrimesList/blob/master/LICENSE)
-and the GitHub Source (Here) [https://github.com/ZacharyPH/PrimeNumbers].
+PrimesList employs the same MIT license as [UTM Primes](https://primes.utm.edu),
+from where these primes are taken. You can view the license [here](https://github.com/ZacharyPH/PrimesList/blob/master/LICENSE)
+and the GitHub Source [Here](https://github.com/ZacharyPH/PrimeNumbers).
 
 You are welcome to use this module commercially or personally with attribution.
