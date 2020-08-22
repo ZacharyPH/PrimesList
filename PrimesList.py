@@ -37,8 +37,8 @@ class PrimesList:
         if type(prime_range) is list:
             self.lower, self.upper = prime_range
         elif type(prime_range) is tuple:
-            self.lower = PrimesList.find_next_prime(prime_range[0])
-            self.upper = PrimesList.find_next_prime(prime_range[1])
+            self.lower = PrimesList.find_next_prime(prime_range[0])[0]
+            self.upper = PrimesList.find_next_prime(prime_range[1])[0]
         elif type(prime_range) is str:
             if prime_range == "all":
                 self.lower, self.upper = (0, 50 * 1000 * 1000)
@@ -188,9 +188,9 @@ class PrimesList:
         :return: (index, prime)
         """
         prime_set = cls.classify_primes(n)
-        if cls.prime_ranges[prime_set][2] is False:
+        if cls.prime_ranges[prime_set[0]][2] is False:
             cls._download_primes(prime_set)
-        curr = prime_set * 1000 * 1000
+        curr = prime_set[0] * 1000 * 1000
         p = 0
         while (p := cls.primes[curr]) < n:
             curr += 1
@@ -228,10 +228,18 @@ class PrimesList:
         return h5py.File(cls.path + "Primes.h5vd", "r")["Primes"][0]
 
     def __iter__(self):
+        """
+        Initializes iteration
+        :return: self
+        """
         self.curr = self.lower - 1
         return self
 
     def __next__(self):
+        """
+        Defines iteration
+        :return: next prime in range
+        """
         self.curr += 1
         if self.curr < self.upper:
             return PrimesList.primes[self.curr]
@@ -264,7 +272,5 @@ class PrimesList:
             step = s.step
         return PrimesList.primes[start:stop:step]
 
-    # TODO: Determine conditions requiring clearing out the downloads
-    @classmethod
-    def __del__(cls):
-        pass
+    def __str__(self):
+        return str(self.__getitem__(slice(None)))[2:-1]
