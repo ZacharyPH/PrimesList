@@ -1,6 +1,7 @@
 import os
 import h5py
 import requests
+from numpy import array2string
 
 
 class PrimesList:
@@ -73,13 +74,13 @@ class PrimesList:
             cls.prime_ranges = {i: [int(line.split(",")[0]), int(line.split(",")[1].strip("\n")), False]
                                 for i, line in enumerate(prime_rngs.readlines())}
 
+        # Initialization of the virtual dataset (no numbers, just placeholder 0's if not downloaded)
+        cls._init_virtual_dataset(cls.path)
+
         # Update which sets of primes are already downlaoded (size > 1 Mb)
         for i in range(50):
             if os.path.getsize(cls.path + f"{i}.h5") > 1000 * 1000:
                 cls.prime_ranges[i][2] = True
-
-        # Initialization of the virtual dataset (no numbers, just placeholder 0's if not downloaded)
-        cls._init_virtual_dataset(cls.path)
 
         # Determine primes to download
         prime_sets = cls._parse_range(prime_range)
@@ -113,7 +114,7 @@ class PrimesList:
             reload_range = range(bounds[0], bounds[1] + 1)
         elif type(prime_range) is list:     # [a, b] -> download the c-th prime through the d-th prime (inclusive)
             bounds = [int(i / (1000 * 1000)) for i in prime_range]
-            reload_range = range(bounds[0], bounds[1] + 1)
+            reload_range = range(bounds[0], bounds[1] + 1 if bounds[1] <= 49 else 50)
         elif prime_range is None:
             reload_range = []
         else:
@@ -196,7 +197,6 @@ class PrimesList:
             curr += 1
         return curr, p
 
-
     @classmethod
     def _init_virtual_dataset(cls, hdf_path) -> None:
         """
@@ -211,7 +211,7 @@ class PrimesList:
             path = hdf_path + f"{n}.h5"
             if not os.path.exists(path):
                 f = h5py.File(hdf_path + f"{n}.h5", "w")
-                f.create_dataset("Primes", shape=[1, 1000 * 1000])
+                f.create_dataset("Primes", shape=[1, 1000 * 1000], dtype="u4")
             else:
                 f = h5py.File(hdf_path + f"{n}.h5", "r")
             layout[0, n * 1000 * 1000:(n + 1) * 1000 * 1000] = h5py.VirtualSource(f["Primes"])
@@ -248,8 +248,10 @@ class PrimesList:
 
     def __getitem__(self, s):  # -> np.array
         """
-        Currently, __getitem__ does not support negative indices. Returns a slice of the prime numbers
-        :param s: slice, in the form slice([start = 0], stop, [step = 1])
+        p[start:stop:step]; __getitem__ supports all normal slicing syntax. Returns a slice of the prime numbers
+        p[stop] -> array from self.lower to stop
+        p[start, stop[, step]] -> array from start to stop, optionally in increments of step
+        :param s: slice, in the form slice([start = self.lower], [stop = self.upper], [step = 1])
         :return: numpy array of primes
         """
         if s.start is None:
@@ -273,4 +275,9 @@ class PrimesList:
         return PrimesList.primes[start:stop:step]
 
     def __str__(self):
-        return str(self.__getitem__(slice(None)))[2:-1]
+        return array2string(self[(slice(None))], max_line_width=1_000_000, separator=", ")
+
+    def __repr__(self):
+        head = array2string(self[slice(self.lower + 4)], separator=", ")[:-1]
+        tail = array2string(self[slice(self.upper - 4, self.upper)], separator=", ")[1:]
+        return f"PrimesList object containing prime number {self.lower} to {self.upper}: {head}, ... {tail}"
