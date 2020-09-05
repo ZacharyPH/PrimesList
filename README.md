@@ -15,7 +15,7 @@ The HDF format was chosen for two primary reasons: speed and size.
 
 \* Additionally, the module downloads primes in chunks of 1,000,000, so the actual space usage is about 
 
-<img src="https://render.githubusercontent.com/render/math?math=4Mb \times \frac{Prime\ Reference\ Range}{1000000}">
+<img src="https://render.githubusercontent.com/render/math?math=4Mb \times \frac{Prime\ Reference\ Range}{1000000}" alt="PythonPrimes size complexity">
 
 ### Use
 Import the package as follows: ```from PrimesList import PrimesList```
@@ -36,6 +36,16 @@ And slicing:
 p = PrimesList("all")  # p now stores all fifty million primes
 print(p[1000:2000:100])  # > [ 7927  8837  9739 10663 11677 12569 13513 14533 15413 16411]
 ```
+
+### Project Status
+- [x] Better documentation / error handling
+- [ ] Downloading all the primes only happens once, but takes around 80 seconds on my machine. I could potentially implement an asynchronous network function, but other suggestions / pull requests are welcome
+    - [ ] Notably, a zip of the HDF of all 50 million primes is only about 68 MB. This approach would defeat the downloading as-needed implementation.
+    - [ ] I could also download a folder of zips and only uncompress on demand. Higher initial package size, but no need to continuously fetch things from GitHub.
+- [ ] Add unit tests
+- [ ] Trim environment and upload
+- [ ] Publish PythonPrimes to PyPi as PrimesList
+
 
 ### License
 PrimesList employs the same MIT license as [UTM Primes](https://primes.utm.edu),
